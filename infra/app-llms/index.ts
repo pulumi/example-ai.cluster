@@ -90,12 +90,12 @@ const svc = new k8s.core.v1.Service('vllm', {
     namespace: ns.metadata.name,
   },
   spec: {
-    type: 'LoadBalancer',
     selector: {
       app: 'vllm',
     },
     ports: [
       {
+        name: 'http',
         port: 8000,
         targetPort: 8000,
       },
@@ -103,4 +103,42 @@ const svc = new k8s.core.v1.Service('vllm', {
   },
 });
 
-export const serviceIp = svc.status.apply((status) => status.loadBalancer?.ingress?.[0]?.ip);
+const ingress = new k8s.networking.v1.Ingress('vllm-alb', {
+  kind: 'Ingress',
+  metadata: {
+    namespace: ns.metadata.name,
+    name: 'ingress',
+    annotations: svc.metadata.name.apply((serviceName) => ({
+      'kubernetes.io/ingress.class': 'alb',
+      'alb.ingress.kubernetes.io/scheme': 'internet-facing',
+      'alb.ingress.kubernetes.io/target-type': 'ip',
+      [`alb.ingress.kubernetes.io/conditions.${serviceName}`]: JSON.stringify([
+        { field: 'http-header', httpHeaderConfig: { httpHeaderName: 'x-pulumi', values: ['hack-fy24q4'] } },
+      ]),
+    })),
+  },
+  spec: {
+    rules: [
+      {
+        http: {
+          paths: [
+            {
+              pathType: 'Prefix',
+              path: '/',
+              backend: {
+                service: {
+                  name: svc.metadata.name,
+                  port: {
+                    name: 'http',
+                  },
+                },
+              },
+            },
+          ],
+        },
+      },
+    ],
+  },
+});
+
+export const lb = ingress.status.apply((status) => status?.loadBalancer?.ingress?.[0]?.hostname ?? status?.loadBalancer?.ingress?.[0]?.ip);

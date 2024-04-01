@@ -5,6 +5,7 @@ deploy an AWS EKS cluster environment tailored for AI and machine learning appli
 
 - [Pulumi AI Cluster](#pulumi-ai-cluster)
   - [Connecting to the Cluster](#connecting-to-the-cluster)
+  - [Testing AI workloads](#testing-ai-workloads)
   - [Deploying AI Workloads](#deploying-ai-workloads)
 - [Projects Overview](#projects-overview)
 
@@ -23,6 +24,27 @@ pulumi env run ai-env-opal-quokka -- kubectl get pod
 
 # Run several:
 pulumi env run ai-env-opal-quokka -i -- $SHELL
+```
+
+## Testing AI workloads
+
+The `llms` app currently deploys Mistral AI, which you can access via OpenAI compatible APIs:
+
+```sh
+VLLM_HOSTNAME=$(pulumi env run ai-env-opal-quokka -i -- kubectl -n llms-82b854d9 get ingress -o jsonpath='{.items[0].status.loadBalancer.ingress[0].hostname}')
+# Value in dev as of this writing: k8s-llms82b8-ingress-3b7b0dafad-1725095714.us-west-2.elb.amazonaws.com
+curl "${VLLM_HOSTNAME}/v1/chat/completions" \
+  -H "Content-Type: application/json" \
+  -H "x-pulumi: hack-fy24q4" \
+  -d '{
+    "model": "mistralai/Mistral-7B-Instruct-v0.2",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Who won the world series in 2016?"
+      }
+    ]
+  }'
 ```
 
 ## Deploying AI Workloads
