@@ -1,0 +1,7 @@
+name: pulumi-ai-eks-l2
+description: Pulumi AI's infrastructure
+runtime:
+  name: nodejs
+  options:
+    nodeargs: '--import tsx/esm'
+    typescript: false

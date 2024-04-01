@@ -1,0 +1,5 @@
+config:
+  pulumi-ai-app-llms:huggingFaceHubToken:
+    secure: AAABABr464FWhWmFFseJ7InDeWg9dmPkzDKdrPn48PmxlKzlBKalXpeTdouc8zHibXEB5bGFflm6h8pmS3VnFoqlpC9A
+environment:
+  - ai-env-gold-kiwi

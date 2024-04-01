@@ -1,0 +1,7 @@
+name: pulumi-ai-app-kubeflow
+runtime:
+  name: nodejs
+  options:
+    nodeargs: '--import tsx/esm'
+    typescript: false
+description: Pulumi AI's infrastructure

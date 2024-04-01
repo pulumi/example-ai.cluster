@@ -1,0 +1,87 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+sortOptions:
+  order: legacy
+  legacySortOptions:
+    orderFirst:
+    - Namespace
+    - ResourceQuota
+    - StorageClass
+    - CustomResourceDefinition
+    - MutatingWebhookConfiguration
+    - ServiceAccount
+    - PodSecurityPolicy
+    - Role
+    - ClusterRole
+    - RoleBinding
+    - ClusterRoleBinding
+    - ConfigMap
+    - Secret
+    - Endpoints
+    - Service
+    - LimitRange
+    - PriorityClass
+    - PersistentVolume
+    - PersistentVolumeClaim
+    - Deployment
+    - StatefulSet
+    - CronJob
+    - PodDisruptionBudget
+    orderLast:
+    - ValidatingWebhookConfiguration
+
+resources:
+# Cert-Manager, deployed by Pulumi
+# - ../manifests/common/cert-manager/cert-manager/base # deployed in eks-l2
+- ../manifests/common/cert-manager/kubeflow-issuer/base
+# Istio
+# - ../manifests/common/istio-1-17/istio-crds/base # deployed in eks-l3-istio
+# - ../manifests/common/istio-1-17/istio-namespace/base # deployed in eks-l3-istio
+- ../manifests/common/istio-1-17/istio-install/overlays/oauth2-proxy
+# oauth2-proxy
+- ../manifests/common/oidc-client/oauth2-proxy/overlays/m2m-self-signed
+# Dex
+- ../manifests/common/dex/overlays/oauth2-proxy
+# KNative
+- ../manifests/common/knative/knative-serving/overlays/gateways
+- ../manifests/common/knative/knative-eventing/base
+- ../manifests/common/istio-1-17/cluster-local-gateway/base
+# Kubeflow namespace
+# - ../manifests/common/kubeflow-namespace/base # taken care of by Pulumi
+# Kubeflow Roles
+- ../manifests/common/kubeflow-roles/base
+# Kubeflow Istio Resources
+- ../manifests/common/istio-1-17/kubeflow-istio-resources/base
+
+
+# Kubeflow Pipelines
+- ../manifests/apps/pipeline/upstream/env/cert-manager/platform-agnostic-multi-user
+# Katib
+- ../manifests/apps/katib/upstream/installs/katib-with-kubeflow
+# Central Dashboard
+- ../manifests/apps/centraldashboard/upstream/overlays/oauth2-proxy
+# Admission Webhook
+- ../manifests/apps/admission-webhook/upstream/overlays/cert-manager
+# Jupyter Web App
+- ../manifests/apps/jupyter/jupyter-web-app/upstream/overlays/istio
+# Notebook Controller
+- ../manifests/apps/jupyter/notebook-controller/upstream/overlays/kubeflow
+# Profiles + KFAM
+- ../manifests/apps/profiles/upstream/overlays/kubeflow
+# PVC Viewer
+- ../manifests/apps/pvcviewer-controller/upstream/base/
+# Volumes Web App
+- ../manifests/apps/volumes-web-app/upstream/overlays/istio
+# Tensorboards Controller
+-  ../manifests/apps/tensorboard/tensorboard-controller/upstream/overlays/kubeflow
+# Tensorboard Web App
+-  ../manifests/apps/tensorboard/tensorboards-web-app/upstream/overlays/istio
+# Training Operator
+- ../manifests/apps/training-operator/upstream/overlays/kubeflow
+# User namespace
+- ../manifests/common/user-namespace/base
+
+# KServe
+- ../manifests/contrib/kserve/kserve
+- ../manifests/contrib/kserve/models-web-app/overlays/kubeflow

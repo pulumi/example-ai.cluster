@@ -1,0 +1,5 @@
+config:
+  pulumi-ai-app-llms:huggingFaceHubToken:
+    secure: AAABAFjBlS+l1qceI62Y+q3JWY6DSgki8myqK2J+cJZyAvLMyjHc9ZFv9WN97zulzFLQTym6hfKO1xycsEU9qJxhB2Ah
+environment:
+  - ai-env-opal-quokka
