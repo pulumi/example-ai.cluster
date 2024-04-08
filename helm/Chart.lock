@@ -5,6 +5,9 @@ dependencies:
 - name: cert-manager
   repository: https://charts.jetstack.io
   version: v1.14.4
+- name: external-dns
+  repository: https://kubernetes-sigs.github.io/external-dns
+  version: 1.14.4
 - name: nvidia-device-plugin
   repository: https://nvidia.github.io/k8s-device-plugin
   version: 0.14.5
@@ -26,5 +29,5 @@ dependencies:
 - name: gateway
   repository: https://istio-release.storage.googleapis.com/charts
   version: 1.21.0-rc.1
-digest: sha256:03f8310f458e5750c7ad9d5d4f820263f849b374b83354cf31346c5e94f51595
-generated: "2024-04-01T13:34:23.233709357-07:00"
+digest: sha256:83fff1cf8c521e74f661f06e6da6550c2419dd9e0270a3dd21f3dd0a3f3d0976
+generated: "2024-04-06T18:38:35.200818536-07:00"

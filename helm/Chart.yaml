@@ -10,6 +10,9 @@ dependencies:
   - name: cert-manager
     version: 'v1.14.4'
     repository: 'https://charts.jetstack.io'
+  - name: external-dns
+    version: 1.14.4
+    repository: https://kubernetes-sigs.github.io/external-dns
   - name: nvidia-device-plugin
     version: '0.14.5'
     repository: 'https://nvidia.github.io/k8s-device-plugin'

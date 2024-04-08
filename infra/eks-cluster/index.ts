@@ -6,7 +6,7 @@ import * as tls from '@pulumi/tls';
 import { clusterPetName, clusterTags, karpenterNodeSecurityGroupTags } from '../lib/clusterIdentity';
 import { getKubeConfig } from './getKubeConfig';
 import { gp3StorageClass } from './gp3StorageClass';
-import { privateSubnetIds } from '../lib/vpcByReference';
+import { privateSubnetIds, vpcId } from '../lib/vpcByReference';
 
 const config = new pulumi.Config();
 const adminRoleArn = config.require('adminRoleArn');
@@ -16,6 +16,7 @@ export default async function eksCluster(): Promise<{
   clusterName: pulumi.Output<string>;
   clusterVersion: pulumi.Output<string>;
   nodeSecurityGroupId: pulumi.Output<string>;
+  clusterSecurityGroupId: pulumi.Output<string>;
   oidcProviderArn: pulumi.Output<string>;
   oidcProviderUrl: pulumi.Output<string>;
   kubeconfig: pulumi.Output<any>;
@@ -53,6 +54,11 @@ export default async function eksCluster(): Promise<{
     }),
   ];
 
+  const clusterSecurityGroup = new aws.ec2.SecurityGroup(`${clusterPetName}-cluster-sg`, {
+    vpcId,
+    tags: clusterTags,
+  });
+
   const cluster = new aws.eks.Cluster(
     clusterPetName,
     {
@@ -63,6 +69,7 @@ export default async function eksCluster(): Promise<{
       },
       vpcConfig: {
         subnetIds: privateSubnetIds,
+        securityGroupIds: [clusterSecurityGroup.id],
       },
       encryptionConfig: {
         resources: ['secrets'],
@@ -76,7 +83,7 @@ export default async function eksCluster(): Promise<{
 
   const oidcProvider = eksOidcProvider(cluster);
 
-  const nodeSecurityGroup = eksSecurityGroups(cluster);
+  const nodeSecurityGroup = eksSecurityGroups(cluster, clusterSecurityGroup.id);
 
   let kubeconfig = getKubeConfig(cluster);
 
@@ -99,6 +106,7 @@ export default async function eksCluster(): Promise<{
     oidcProviderUrl: oidcProvider.url,
     oidcProviderArn: oidcProvider.arn,
     nodeSecurityGroupId: nodeSecurityGroup.id,
+    clusterSecurityGroupId: clusterSecurityGroup.id,
     kubeconfig,
   };
 }
@@ -163,7 +171,7 @@ async function eksAdminAccessPolicy(cluster: aws.eks.Cluster): Promise<aws.eks.A
   return awsAdminAccessPolicy;
 }
 
-function eksSecurityGroups(cluster: aws.eks.Cluster): aws.ec2.SecurityGroup {
+function eksSecurityGroups(cluster: aws.eks.Cluster, clusterSecurityGroupId: pulumi.Input<string>): aws.ec2.SecurityGroup {
   const nodeSecurityGroup = new aws.ec2.SecurityGroup(`${clusterPetName}-node-sg`, {
     vpcId: cluster.vpcConfig.vpcId,
     tags: karpenterNodeSecurityGroupTags,
@@ -172,18 +180,19 @@ function eksSecurityGroups(cluster: aws.eks.Cluster): aws.ec2.SecurityGroup {
   // Cluster rules
   new aws.vpc.SecurityGroupIngressRule(`${clusterPetName}-node-cluster-api-server`, {
     description: 'Allow pods to communicate with the cluster API Server',
-    securityGroupId: cluster.vpcConfig.clusterSecurityGroupId,
+    securityGroupId: clusterSecurityGroupId,
     referencedSecurityGroupId: nodeSecurityGroup.id,
     fromPort: 443,
     toPort: 443,
     ipProtocol: 'tcp',
+    tags: clusterTags,
   });
 
   // Node rules
   new aws.vpc.SecurityGroupIngressRule(`${clusterPetName}-cluster-node-https`, {
     description: 'Allow the control plane to communicate with worker nodes over HTTPS',
     securityGroupId: nodeSecurityGroup.id,
-    referencedSecurityGroupId: cluster.vpcConfig.clusterSecurityGroupId,
+    referencedSecurityGroupId: clusterSecurityGroupId,
     fromPort: 443,
     toPort: 443,
     ipProtocol: 'tcp',
@@ -192,7 +201,7 @@ function eksSecurityGroups(cluster: aws.eks.Cluster): aws.ec2.SecurityGroup {
   new aws.vpc.SecurityGroupIngressRule(`${clusterPetName}-cluster-node-kubelets`, {
     description: 'Allow the control plane to communicate with worker nodes kubelets',
     securityGroupId: nodeSecurityGroup.id,
-    referencedSecurityGroupId: cluster.vpcConfig.clusterSecurityGroupId,
+    referencedSecurityGroupId: clusterSecurityGroupId,
     fromPort: 10250,
     toPort: 10250,
     ipProtocol: 'tcp',
@@ -240,7 +249,8 @@ function eksSecurityGroups(cluster: aws.eks.Cluster): aws.ec2.SecurityGroup {
 }
 
 function eksKmsKey(): { clusterKmsPolicy: aws.iam.Policy; kmsKey: aws.kms.Key } {
-  const kmsKey = new aws.kms.Key(`${clusterPetName}`, {
+  const kmsKey = new aws.kms.Key(`eks-cluster-${clusterPetName}`, {
+    tags: clusterTags,
     enableKeyRotation: true,
     description: `KMS key for EKS cluster '${clusterPetName}' secrets`,
   });

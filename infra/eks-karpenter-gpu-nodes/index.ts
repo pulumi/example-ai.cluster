@@ -12,50 +12,49 @@ const karpenterStack = new pulumi.StackReference('cluster', {
 
 const karpenterNodeRoleName = karpenterStack.requireOutput('karpenterNodeRoleName');
 
-const instanceFamilies = [
+const gpuInstanceTypes = [
   {
     name: '8xA100',
-    family: 'p4d',
-    // Up to 1 x p4d.24xlarge
+    instance: 'p4d.24xlarge',
     quantity: 1,
     cpu: 96,
     memory: 1152,
     vram: 320,
     gpus: 8,
+    onDemand: false,
   },
   {
     name: '8xA10',
-    family: 'g5',
-    // Up to 1 x g5.48xlarge
+    instance: 'g5.48xlarge',
     quantity: 1,
     cpu: 192,
     memory: 768,
     vram: 192,
     gpus: 8,
+    onDemand: false,
   },
   {
     name: '4xA10',
-    family: 'g5',
-    // Up to 1 x g5.24xlarge
-    quantity: 1,
+    instance: 'g5.24xlarge',
+    quantity: 2,
     cpu: 96,
     memory: 384,
     vram: 96,
     gpus: 4,
+    onDemand: true,
   },
   {
     name: '1xA10',
-    family: 'g5',
-    // Up to 2 x g5.16xlarge
-    quantity: 2,
-    cpu: 128,
-    memory: 256,
+    instance: 'g5.xlarge',
+    quantity: 24,
+    cpu: 4,
+    memory: 16,
     vram: 24,
-    gpus: 1,
+    onDemand: true,
   },
 ];
 
-for (const spec of instanceFamilies) {
+for (const spec of gpuInstanceTypes) {
   new k8s.apiextensions.CustomResource(`gpu-${spec.name}`, {
     apiVersion: 'karpenter.sh/v1beta1',
     kind: 'NodePool',
@@ -67,14 +66,13 @@ for (const spec of instanceFamilies) {
         consolidationPolicy: 'WhenUnderutilized',
       },
       limits: {
-        cpu: spec.cpu * spec.quantity,
-        memory: `${spec.memory * spec.quantity}Gi`,
-        'nvidia.com/gpu': spec.gpus * spec.quantity,
+        cpu: spec.cpu * (spec.quantity + 1) - 1,
+        memory: `${spec.memory * (spec.quantity + 1) - 1}Gi`,
       },
       template: {
         metadata: {
           labels: {
-            'eks.pulumi.com/gpu': 'nvidia',
+            'eks.pulumi.com/gpu-layout': spec.name,
             'nvidia.com/device-plugin.config': spec.name,
             'vpc.amazonaws.com/has-trunk-attached': 'false',
           },
@@ -85,8 +83,8 @@ for (const spec of instanceFamilies) {
           },
           taints: [
             {
-              key: 'nvidia.com/gpu',
-              value: 'true',
+              key: 'eks.pulumi.com/gpu-workload-taint',
+              value: 'nvidia',
               effect: 'NoSchedule',
             },
           ],
@@ -102,20 +100,15 @@ for (const spec of instanceFamilies) {
               values: ['linux'],
             },
             {
-              key: 'karpenter.k8s.aws/instance-family',
+              key: 'node.kubernetes.io/instance-type',
               operator: 'In',
-              values: [spec.family],
-            },
-            {
-              key: 'karpenter.k8s.aws/instance-gpu-count',
-              operator: 'In',
-              values: [`${spec.gpus}`],
+              values: [spec.instance],
             },
             {
               key: 'karpenter.sh/capacity-type',
               operator: 'In',
               // About 1/7th the price
-              values: ['spot'],
+              values: spec.onDemand ? ['on-demand', 'spot'] : ['spot'],
             },
           ],
         },
@@ -123,8 +116,6 @@ for (const spec of instanceFamilies) {
     },
   });
 }
-
-const namespace = new k8s.core.v1.Namespace('nvidia-admin', {});
 
 new k8s.apiextensions.CustomResource(`gpu-node-class`, {
   apiVersion: 'karpenter.k8s.aws/v1beta1',
@@ -171,53 +162,47 @@ new k8s.apiextensions.CustomResource(`gpu-node-class`, {
   },
 });
 
-const instanceConfigs = Object.fromEntries(
-  instanceFamilies.map((spec) => {
-    return [
-      spec.name,
-      `\
-  version: v1
-  flags:
-    migStrategy: "none"
-    failOnInitError: true
-    nvidiaDriverRoot: "/"
-    plugin:
-      passDeviceSpecs: false
-      deviceListStrategy: envvar
-      deviceIDStrategy: uuid
-  sharing:
-    timeSlicing:
-      renameByDefault: false
-      resources:
-      - name: nvidia.com/gpu
-        replicas: ${spec.gpus * 8}`,
-    ];
-  }),
-);
+// const instanceConfigs = Object.fromEntries(
+//   gpuInstanceTypes.map((spec) => {
+//     return [
+//       spec.name,
+//       `\
+//   version: v1
+//   flags:
+//     migStrategy: "none"
+//     failOnInitError: true
+//     nvidiaDriverRoot: "/"
+//     plugin:
+//       passDeviceSpecs: false
+//       deviceListStrategy: envvar
+//       deviceIDStrategy: uuid`,
+//     ];
+//   }),
+// );
 
-new k8s.helm.v3.Chart('nvidia-device-plugin', {
-  path: '../../charts/nvidia-device-plugin',
-  skipAwait: true,
-  namespace: namespace.metadata.name,
-  values: {
-    config: {
-      map: {
-        ...instanceConfigs,
-        default: `\
-version: v1
-flags:
-  migStrategy: none`,
-      },
-    },
-    nodeSelector: {
-      'eks.pulumi.com/gpu': 'nvidia',
-    },
-    tolerations: [
-      {
-        key: 'nvidia.com/gpu',
-        operator: 'Exists',
-        effect: 'NoSchedule',
-      },
-    ],
-  },
-});
+// new k8s.helm.v3.Chart('nvidia-device-plugin', {
+//   path: '../../charts/nvidia-device-plugin',
+//   skipAwait: true,
+//   namespace: namespace.metadata.name,
+//   values: {
+//     config: {
+//       map: {
+//         ...instanceConfigs,
+//         default: `\
+// version: v1
+// flags:
+//   migStrategy: none`,
+//       },
+//     },
+//     nodeSelector: {
+//       'karpenter.k8s.aws/instance-gpu-manufacturer': 'nvidia',
+//     },
+//     tolerations: [
+//       {
+//         key: 'eks.pulumi.com/gpu-workload-taint',
+//         operator: 'Equal',
+//         value: 'nvidia',
+//       },
+//     ],
+//   },
+// });

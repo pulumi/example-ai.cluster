@@ -53,7 +53,7 @@ export default function main(): any {
     tags: vpcTags,
   });
 
-  const interfaceEndpoints = ['ec2', 'ecr.dkr', 'ecr.api', 'logs', 'ssm', 'sqs', 'eks', 'sts'];
+  const interfaceEndpoints = ['ec2', 'ecr.dkr', 'ecr.api', 'logs', 'ssm', 'sqs', 'eks', 'sts', 'elasticfilesystem'];
 
   for (const endpoint of interfaceEndpoints) {
     const logicalName = endpoint.replace('.', '-');

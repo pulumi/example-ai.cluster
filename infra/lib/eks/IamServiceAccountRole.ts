@@ -5,6 +5,7 @@ import { oidcProviderArn, oidcProviderUrl } from '../clusterByReference';
 interface IamServiceAccountRoleArgs {
   namespaceName: pulumi.Input<string>;
   serviceAccountName: pulumi.Input<string>;
+  serviceAccountNameTest?: 'StringEquals' | 'StringLike';
 }
 
 export function IamServiceAccountRole(name: string, args: IamServiceAccountRoleArgs, opts?: pulumi.ResourceOptions): aws.iam.Role {
@@ -21,7 +22,7 @@ export function IamServiceAccountRole(name: string, args: IamServiceAccountRoleA
             values: ['sts.amazonaws.com'],
           },
           {
-            test: 'StringEquals',
+            test: args.serviceAccountNameTest ?? 'StringEquals',
             variable: pulumi.interpolate`${oidcProviderUrl}:sub`,
             values: [pulumi.interpolate`system:serviceaccount:${args.namespaceName}:${args.serviceAccountName}`],
           },

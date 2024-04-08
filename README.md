@@ -27,24 +27,59 @@ pulumi env run ai-env-opal-quokka -i -- $SHELL
 ```
 
 ## Testing AI workloads
-
-The `llms` app currently deploys Mistral AI, which you can access via OpenAI compatible APIs:
+The `llms` app currently deploys Mixtral AI, which you can access via OpenAI compatible APIs:
 
 ```sh
-VLLM_HOSTNAME=$(pulumi env run ai-env-opal-quokka -i -- kubectl -n llms-82b854d9 get ingress -o jsonpath='{.items[0].status.loadBalancer.ingress[0].hostname}')
+VLLM_HOSTNAME="https://vllm.opal-quokka.pulumi-demos.net"
 # Value in dev as of this writing: k8s-llms82b8-ingress-3b7b0dafad-1725095714.us-west-2.elb.amazonaws.com
+GUIDED_JSON='
+{
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "year": {
+        "type": "string",
+        "enum": ["2016", "2017", "2018", "2019", "2020"]
+      },
+      "winner": {
+        "type": "string",
+        "description": "The team that won the World Series in the given year."
+      }
+    },
+    "required": ["year", "winner"]
+  }
+}
+'
+GUIDED_JSON=$(echo "${GUIDED_JSON}" | jq -c 'tojson')
+
+PAYLOAD=$(
+cat <<EOF
+{
+  "model": "TheBloke/Nous-Hermes-2-Mixtral-8x7B-DPO-GPTQ",
+  "stream": "true",
+  "top_p": 1,
+  "temperature": "0.5",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Who won the world series in 2016, 2017, 2018, 2019, and 2020?"
+    }
+  ],
+  "guided_json": ${GUIDED_JSON}
+}
+EOF
+)
+
 curl "${VLLM_HOSTNAME}/v1/chat/completions" \
   -H "Content-Type: application/json" \
   -H "x-pulumi: hack-fy24q4" \
-  -d '{
-    "model": "mistralai/Mistral-7B-Instruct-v0.2",
-    "messages": [
-      {
-        "role": "user",
-        "content": "Who won the world series in 2016?"
-      }
-    ]
-  }'
+  --no-buffer \
+  --silent \
+  --data-binary "$PAYLOAD" | \
+  cut -c 7- | \
+  sed -u 's/\[DONE\]//' | \
+  jq -r -j '.choices[0].delta.content'
 ```
 
 ## Deploying AI Workloads

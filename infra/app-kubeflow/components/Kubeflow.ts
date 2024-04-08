@@ -2,7 +2,7 @@ import * as k8s from '@pulumi/kubernetes';
 import * as pulumi from '@pulumi/pulumi';
 import * as aws from '@pulumi/aws';
 import { clusterResources, namespacedResources, patchForce, skipAwait } from './skipAwait';
-import { clusterName, nodeSecurityGroupId } from '../../lib/clusterByReference';
+import { clusterSecurityGroupId, nodeSecurityGroupId } from '../../lib/clusterByReference';
 
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
 interface KubeflowArgs {}
@@ -40,11 +40,7 @@ export class Kubeflow extends pulumi.ComponentResource {
       return [...dependsOn, crds, ...Object.values(crdResources)];
     });
 
-    const cluster = aws.eks.getClusterOutput({
-      name: clusterName,
-    });
-
-    const clusterSgId = cluster.vpcConfig.clusterSecurityGroupId;
+    const clusterSgId = clusterSecurityGroupId;
 
     new aws.vpc.SecurityGroupIngressRule(
       `${name}-admission-webhook-service`,

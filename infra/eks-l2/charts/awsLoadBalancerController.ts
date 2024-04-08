@@ -2,7 +2,7 @@ import * as aws from '@pulumi/aws';
 import * as k8s from '@pulumi/kubernetes';
 import type * as pulumi from '@pulumi/pulumi';
 
-import { clusterName, nodeSecurityGroupId } from '../../lib/clusterByReference';
+import { clusterName, clusterSecurityGroupId, nodeSecurityGroupId } from '../../lib/clusterByReference';
 import { PodIdentityRole } from '../../lib/eks/PodIdentityRole';
 import { clusterPetName, clusterTags } from '../../lib/clusterIdentity';
 import { vpcId } from '../../lib/vpcByReference';
@@ -247,13 +247,9 @@ export function awsLoadBalancerControllerChart({ dependsOn = [] }: { dependsOn?:
     { deleteBeforeReplace: true },
   );
 
-  const cluster = aws.eks.getClusterOutput({
-    name: clusterName,
-  });
-
   new aws.vpc.SecurityGroupIngressRule(`${clusterPetName}-aws-lb-webhook`, {
     securityGroupId: nodeSecurityGroupId,
-    referencedSecurityGroupId: cluster.vpcConfig.clusterSecurityGroupId,
+    referencedSecurityGroupId: clusterSecurityGroupId,
     fromPort: 9443,
     toPort: 9443,
     ipProtocol: 'tcp',

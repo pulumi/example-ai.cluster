@@ -1,13 +1,9 @@
 import * as aws from '@pulumi/aws';
 import * as k8s from '@pulumi/kubernetes';
 import deepmerge from 'deepmerge';
-import { clusterName, nodeSecurityGroupId } from '../lib/clusterByReference';
+import { clusterSecurityGroupId, nodeSecurityGroupId } from '../lib/clusterByReference';
 
-const cluster = aws.eks.getClusterOutput({
-  name: clusterName,
-});
-
-const clusterSgId = cluster.vpcConfig.clusterSecurityGroupId;
+const clusterSgId = clusterSecurityGroupId;
 
 new aws.vpc.SecurityGroupIngressRule(`istio-sidecar-webhook`, {
   securityGroupId: nodeSecurityGroupId,

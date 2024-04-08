@@ -12,3 +12,4 @@ export const clusterVersion = clusterStack.requireOutput('clusterVersion');
 export const oidcProviderUrl = clusterStack.requireOutput('oidcProviderUrl');
 export const oidcProviderArn = clusterStack.requireOutput('oidcProviderArn');
 export const nodeSecurityGroupId = clusterStack.requireOutput('nodeSecurityGroupId');
+export const clusterSecurityGroupId = clusterStack.requireOutput('clusterSecurityGroupId');
